@@ -64,6 +64,6 @@ setInterval(locPulse, 100);
 
 
 
-http.listen(3010, () => {
-    console.log('listening on *:3010');
+http.listen(80, () => {
+    console.log('listening on *:80');
   });
