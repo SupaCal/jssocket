@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      canvas {
+        border: 1px solid #d3d3d3;
+        background-color: #f1f1f1;
+      }
+    </style>
+  </head>
+  <body onload="startGame()">
+    <script src="/socket"></script>
+    <script>
+      
+      var myGamePiece;
+
+      var it = "blue";
+      var players = {};
+      var keys = [];
+      var lastcoords = {x: null, y: null}
+      window.onkeydown = function (event) {
+        keys[event.key] = true;
+        //console.log(event.key);
+      };
+      window.onkeyup = function (event) {
+        keys[event.key] = false;
+      };
+
+      function startGame() {
+        myGamePiece = new component(30, 30, "blue", 50, 100);
+        myGameArea.start();
+        window.socket = io();
+        startSocket()
+      }
+
+      var myGameArea = {
+        canvas: document.createElement("canvas"),
+        start: function () {
+          this.canvas.width = 480;
+          this.canvas.height = 270;
+          this.context = this.canvas.getContext("2d");
+          document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+          this.interval = setInterval(updateGameArea, 20);
+        },
+        clear: function () {
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        },
+      };
+
+      function component(width, height, color, x, y) {
+        this.width = width;
+        this.height = height;
+        this.x = x;
+        this.y = y;
+        this.startingX = x;
+        this.startingY = y;
+        this.update = function () {
+          ctx = myGameArea.context;
+          ctx.fillStyle = color;
+          ctx.fillRect(this.x, this.y, this.width, this.height);
+        };
+        this.resetLocation = function () {
+          this.x = this.startingX;
+          this.y = this.startingY;
+        };
+      }
+
+      function updateGameArea() {
+        myGameArea.clear();
+        if (keys["ArrowUp"] == true) {
+          myGamePiece.y--;
+        }
+        if (keys["ArrowDown"] == true) {
+          myGamePiece.y++;
+        }
+        if (keys["ArrowLeft"] == true) {
+          myGamePiece.x--;
+        }
+        if (keys["ArrowRight"] == true) {
+          myGamePiece.x++;
+        }
+        if(lastcoords.x != myGamePiece.x || lastcoords.y != myGamePiece.y){
+          window.socket.emit('usermove', {x: myGamePiece.x, y: myGamePiece.y})
+          lastcoords.x = myGamePiece.x;
+          lastcoords.y = myGamePiece.y;
+        }
+        // for (const enemyid in players) {
+        // if (players.hasOwnProperty(enemyid)) {
+        //     const enemy = players[enemyid];
+        //     if (
+        //       checkCollisions(
+        //         myGamePiece.width,
+        //         myGamePiece.height,
+        //         myGamePiece.x,
+        //         myGamePiece.y,
+        //         enemy.width,
+        //         enemy.height,
+        //         enemy.x,
+        //         enemy.y
+        //       )
+        //     ) {
+        //       myGamePiece.resetLocation();
+        //       for (const id in players) {
+        //         if (players.hasOwnProperty(id)) {
+        //           const element = players[id];
+        //           element.resetLocation();
+        //         }
+        //       }
+        //       //var ctx = myGameArea.context;
+        //       //ctx.fillStyle = "white";
+        //       //ctx.fillText(it, 10, 10)
+        //     }
+        //   }
+        // }
+        
+        myGamePiece.update();
+        for (const id in players) {
+          if (players.hasOwnProperty(id)) {
+            const element = players[id];
+            element.update();
+          }
+        }
+      }
+      function startSocket() {
+        window.socket.on("message", function (message){
+          
+          if(message.type == "listofplayers"){
+            message.data.forEach(element => {
+              players[element.id] = new component(
+              30,
+              30,
+              "red",
+              element.coords.x,
+              element.coords.y
+            );
+            });
+          }
+          if(message.type == "yourcoords"){
+          console.log('reachedmessage coord if')
+           myGamePiece.x = message.data.x;
+           myGamePiece.y = message.data.y;
+           myGamePiece.startingX = message.data.x;
+           myGamePiece.startingY = message.data.y;
+           lastcoords.x = message.data.x;
+           lastcoords.y = message.data.y;
+          }
+        })
+        window.socket.on("playerjoin", function (playerjoin) {
+          if(playerjoin.id != socket.id){
+            players[playerjoin.id] = new component(
+              30,
+              30,
+              "red",
+              playerjoin.coords.x,
+              playerjoin.coords.y
+            );
+          }
+        });
+        window.socket.on("otherplayermoved", (newplayerlocs) => {
+          newplayerlocs.forEach(element => {
+            if(players.hasOwnProperty(element.id)){
+              
+              players[element.id].x = element.coords.x;
+              players[element.id].y = element.coords.y;
+            }
+          });
+        })
+        window.socket.on("playerleave", function (playerleave){
+          delete players[playerleave]
+        })
+      } 
+      
+
+      function checkCollisions(
+        rect1Width,
+        rect1Height,
+        rect1XPos,
+        rect1YPos,
+        rect2Width,
+        rect2Height,
+        rect2XPos,
+        rect2YPos
+      ) {
+        if (
+          rect1XPos < rect2XPos + rect2Width &&
+          rect1XPos + rect1Width > rect2XPos &&
+          rect1YPos < rect2YPos + rect2Height &&
+          rect1Height + rect1YPos > rect2YPos
+        ) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+    </script>
+  </body>
+</html>
