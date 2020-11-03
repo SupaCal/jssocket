@@ -64,6 +64,6 @@ setInterval(locPulse, 100);
 
 
 
-http.listen(80, () => {
+http.listen(process.env.PORT || 80, () => {
     console.log('listening on *:80');
   });
